@@ -1,0 +1,694 @@
+---
+title: "Projekt 1. PCA i MDS"
+date: today
+author: "Mikołaj Ziółkowski"
+editor: visual
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-title: Spis Treści
+    number-sections: true
+    number-depth: 3
+    embed-resources: true
+    html-math-method: katex
+    code-tools: true
+    code-block-bg: true
+    code-fold: true
+    code-summary: "Show and hide code"
+    link-external-icon: true
+    link-external-newwindow: true
+    smooth-scroll: true
+    self-contained: true
+    citation: true
+    theme: 
+        dark: solar
+        light: flatly
+    fontsize: 1.0em
+    linestretch: 1.3
+    fig-align: center
+execute: 
+  echo: true
+  error: false
+  warning: false
+  output: true
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+
+# Część 1
+
+Pakiety:
+```{r}
+library(dplyr)
+library(ggplot2)
+library(nortest)  # Test Andersona-Darlinga
+library(stats)    # Test Shapiro-Wilka, test Kołmogorowa-Smirnova
+
+```
+
+Modyfikacja danych
+```{r}
+
+europln_d <- read.csv("C:/Users/mikol/OneDrive/Desktop/Pomiary_Ryzyka/waluty/europln/eurpln_dziennie.csv")
+europln_m <- read.csv("C:/Users/mikol/OneDrive/Desktop/Pomiary_Ryzyka/waluty/europln/eurpln_miesiecznie.csv")
+europln_w <- read.csv("C:/Users/mikol/OneDrive/Desktop/Pomiary_Ryzyka/waluty/europln/eurpln_tygodniowo.csv")
+
+
+europln_d$Data <- as.Date(europln_d$Data, format = "%Y-%m-%d")
+europln_w$Data <- as.Date(europln_w$Data, format = "%Y-%m-%d")
+europln_m$Data <- as.Date(europln_m$Data, format = "%Y-%m-%d")
+
+europln_d_filtered <- subset(europln_d, Data >= as.Date("2022-01-01") & Data <= as.Date("2024-12-31"))
+europln_w_filtered <- subset(europln_w, Data >= as.Date("2022-01-01") & Data <= as.Date("2024-12-31"))
+europln_m_filtered <- subset(europln_m, Data >= as.Date("2007-01-01") & Data <= as.Date("2024-12-31"))
+
+```
+
+## Zad1
+```{r}
+# Zad1 --------------------------------------------------------------------
+
+
+#dane dzienne stopy zwrotu
+europln_d_filtered <- europln_d_filtered |> 
+  mutate(
+    Stopa_Prosta = (Zamkniecie - lag(Zamkniecie)) / lag(Zamkniecie),
+    Stopa_Logarytmiczna = log(Zamkniecie / lag(Zamkniecie))
+  )
+#dane tygodniowe stopy zwrotu
+europln_w_filtered <- europln_w_filtered |> 
+  mutate(
+    Stopa_Prosta = (Zamkniecie - lag(Zamkniecie)) / lag(Zamkniecie),
+    Stopa_Logarytmiczna = log(Zamkniecie / lag(Zamkniecie))
+  )
+
+head(europln_d_filtered)
+head(europln_w_filtered)
+
+
+```
+
+## Zad2
+```{r}
+# Zad2 --------------------------------------------------------------------
+
+# miesięczne stopy zwrotu
+europln_m_filtered <- europln_m_filtered |> 
+  mutate(
+    Stopa_Prosta = (Zamkniecie - lag(Zamkniecie)) / lag(Zamkniecie),
+    Stopa_Logarytmiczna = log(Zamkniecie / lag(Zamkniecie))
+  )
+
+head(europln_m_filtered)
+
+```
+
+
+## Zad3
+
+```{r}
+# Zad3 --------------------------------------------------------------------
+
+### Dane dzienne
+# Wykres dziennych stóp zwrotu, stopa prosta
+ggplot(europln_d_filtered, aes(x = Data)) +
+  geom_line(aes(y = Stopa_Prosta, color = "Stopa Prosta")) +
+  labs(title = "Dzienna stopa zwrotu (2022-2024)", y = "Stopa zwrotu", color = "Rodzaj stopy") +
+  theme_minimal()
+
+# Wykres dzennych stóp zwrotu, stopa logarytmiczna
+ggplot(europln_d_filtered, aes(x = Data)) +
+  geom_line(aes(y = Stopa_Logarytmiczna, color = "Stopa Logarytmiczna")) +
+  labs(title = "Dzienna stopa zwrotu (2022-2024)", y = "Stopa zwrotu", color = "Rodzaj stopy") +
+  theme_minimal()
+
+# Wykres różnicy między stopą prostą i logarytmiczną - dzienne
+ggplot(europln_d_filtered, aes(x = Data, y = Stopa_Prosta - Stopa_Logarytmiczna)) +
+  geom_line(color = "blue") +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +
+  labs(title = "Różnica między stopą prostą a logarytmiczną (Dzienna)", 
+       y = "Różnica", x = "Data") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+### Dane miesięczne
+# Wykres miesięcznych stóp zwrotu, stopa prosta
+ggplot(europln_m_filtered, aes(x = Data)) +
+  geom_line(aes(y = Stopa_Prosta, color = "Stopa Prosta")) +
+  labs(title = "Miesięczna stopa zwrotu (2007-2024)", y = "Stopa zwrotu", color = "Rodzaj stopy") +
+  theme_minimal()
+
+# Wykres miesięcznych stóp zwrotu, stopa logarytmiczna
+ggplot(europln_m_filtered, aes(x = Data)) +
+  geom_line(aes(y = Stopa_Logarytmiczna, color = "Stopa Logarytmiczna")) +
+  labs(title = "Miesięczna stopa zwrotu (2007-2024)", y = "Stopa zwrotu", color = "Rodzaj stopy") +
+  theme_minimal()
+
+# Wykres różnicy między stopą prostą i logarytmiczną - miesięczne
+ggplot(europln_m_filtered, aes(x = Data, y = Stopa_Prosta - Stopa_Logarytmiczna)) +
+  geom_line(color = "blue") +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "1 year") +
+  labs(title = "Różnica między stopą prostą a logarytmiczną (Miesięczna)", 
+       y = "Różnica", x = "Data") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+W okresach duzych wahań n arynku różnice są bardzo widoczne
+można zauważyć, iż stopa logarytmiczna jest lepszym przybliżeniem dla większych zmian
+Dla miesięcznych stóp zwrotu różnice są bardziej zauważalne 
+
+## zad4
+```{r}
+# Zad4 --------------------------------------------------------------------
+
+# p-value < 0.05 to odrzucamy H0 o normalności rozkładów
+
+d_daily <- na.omit(europln_d_filtered$Stopa_Logarytmiczna)
+d_weekly <- na.omit(europln_w_filtered$Stopa_Logarytmiczna)
+d_monthly <- na.omit(europln_m_filtered$Stopa_Logarytmiczna)
+
+test_normalnosci <- function(data, nazwa) {
+  cat("\n", nazwa, "\n")
+  cat("Shapiro-Wilk Test: p-value =", shapiro.test(data)$p.value, "\n")
+  cat("Anderson-Darling Test: p-value =", ad.test(data)$p.value, "\n")
+  cat("Kolmogorov-Smirnov Test: p-value =", ks.test(data, "pnorm", mean(data), sd(data))$p.value, "\n")
+}
+```
+
+dzienna
+```{r}
+#dla danych dziennych
+test_normalnosci(d_daily, "Dzienna logarytmiczna stopa zwrotu")
+
+
+```
+Wszystkie testy wskazują iż należy odzrucić hipoteze H0,
+a więc rozkład nie jest normalny
+
+
+tygodniowa
+```{r}
+#dla danych tygodniowych
+test_normalnosci(d_weekly, "Tygodniowa logarytmiczna stopa zwrotu")
+```
+
+Wszystkie testy wskazują iż należy odzrucić hipoteze H0,
+a więc rozkład nie jest normalny
+
+miesięczna
+```{r}
+#dla danych miesięcznych
+test_normalnosci(d_monthly, "Miesięczna logarytmiczna stopa zwrotu")
+
+```
+
+test Kolomogorov-Smirnov wskazuje na rozk.normalny
+ pozostałe testy Odrzycają hipoteze zerową
+przeważają testy odrzucające normalność, więc możemy uznać, że 
+miesięczne stopy zwrotu również nie mają rozkładu normalnego, choć są bliższe normalności niż stopy dzienne czy tygodniowe.
+
+
+## Zad1.1
+```{r}
+# Zad1.1** ----------------------------------------------------------------
+
+# obliczenia teoretyczne częstości dla każdego podziału
+# przy założeniu roz.normalnego oraz porówanie ich z empirycznymi wartościami z danych stóp zwrotu
+
+
+# średnia i odch.standardowe dla dziennych logarytmicznych stóp zwrotu
+
+mean_d <- mean(europln_d_filtered$Stopa_Logarytmiczna, na.rm = TRUE)
+sd_d <- sd(europln_d_filtered$Stopa_Logarytmiczna, na.rm = TRUE)
+
+# w pierwszej kolejności dziele dane na kategorie względem odchyleń std.
+europln_d_filtered <- europln_d_filtered |> 
+  mutate(
+    SD_category = case_when(
+      Stopa_Logarytmiczna >= mean_d - sd_d & Stopa_Logarytmiczna <= mean_d + sd_d ~ "<1 SD",
+      abs(Stopa_Logarytmiczna - mean_d) > sd_d & abs(Stopa_Logarytmiczna - mean_d) <= 2 * sd_d ~ "1-2 SD",
+      abs(Stopa_Logarytmiczna - mean_d) > 2 * sd_d & abs(Stopa_Logarytmiczna - mean_d) <= 3 * sd_d ~ "2-3 SD",
+      abs(Stopa_Logarytmiczna - mean_d) > 3 * sd_d & abs(Stopa_Logarytmiczna - mean_d) <= 4 * sd_d ~ "3-4 SD",
+      abs(Stopa_Logarytmiczna - mean_d) > 4 * sd_d & abs(Stopa_Logarytmiczna - mean_d) <= 5 * sd_d ~ "4-5 SD",
+      abs(Stopa_Logarytmiczna - mean_d) > 5 * sd_d ~ ">5 SD",
+      TRUE ~ NA_character_
+    )
+  )
+
+# Liczba obserwacji w każdej kategorii
+empir_counts <- table(europln_d_filtered$SD_category, useNA = "no")
+
+# Symulacja teoretycznego rozkładu normalnego 
+set.seed(123) 
+n <- nrow(europln_d_filtered)
+
+simulated_returns <- rnorm(n, mean = mean_d, sd = sd_d)
+
+simulated_categories <- cut(abs(simulated_returns - mean_d),
+                            breaks = c(0, sd_d, 2 * sd_d, 3 * sd_d, 4 * sd_d, 5 * sd_d, Inf),
+                            labels = c("<1 SD", "1-2 SD", "2-3 SD", "3-4 SD", "4-5 SD", ">5 SD"),
+                            include.lowest = TRUE)
+
+theoretical_counts <- table(simulated_categories)
+
+
+# Porównanie teoretyczne i empiryczne -------------------------------------
+
+# Tworzenie ramki danych do porównania
+comparison <- data.frame(
+  Interval = c("<1 SD", "1-2 SD", "2-3 SD", "3-4 SD", "4-5 SD", ">5 SD"),
+  Empirical_Count = as.numeric(empir_counts),
+  Theoretical_Count = as.numeric(theoretical_counts)
+)
+
+# Wydrukowanie porównania
+print(comparison)
+
+# Wykres porównawczy
+barplot(t(as.matrix(comparison[, -1])), beside = TRUE,
+        legend.text = c("Empiryczny", "Teoretyczny"),
+        col = c("skyblue", "orange"), 
+        main = "Porównanie rozkładu empirycznego i teoretycznego",
+        xlab = "Przedziały odchyleń standardowych", ylab = "Liczba obserwacji")
+
+
+
+```
+Porównanie empiryczne i teoretyczne
+-  <1 SD empirycznie jest nieco więcej małych zmian
+- 1-2 SD bardzo duża różnica ,znacznie mniej średnich zmian w rzeczywistości
+- 2-3 SD Dużych zmian jest empirycznie znacznie więcej
+- >3 SD empiryczne wartości są znacznie wyższe niż teoretyczne, bardzo duże spadki wzrosty
+       występują częściej w rzeczywistości niż w teoretycznym rozkładzie normalnynm
+rozkład empiryczny ma grubsze ogony, czyli więcej obserwacji w skrajnych wartościahch powyżej 2-3 SD
+Podsumowując rozkład stóp zwrotunie jest rozk.normalnym, można zaobserwować większą zmienność oraz asymetrię
+
+Analiza symetrii: 
+liczba wzrostów i spadków w każdej kategorii
+```{r}
+
+europln_d_filtered <- europln_d_filtered |> 
+  mutate(Direction = ifelse(Stopa_Logarytmiczna >= mean_d, "Wzrost", "Spadek"))
+
+symmetry_counts <- table(europln_d_filtered$SD_category, europln_d_filtered$Direction)
+print(symmetry_counts)
+
+```
+
+Czy duże zmiany (wzrosty/spadki) są symetryczne, (tj. jest ich mniej więcej tyle samo)?
+w niektórych przedziałach wartosci sapdków i wzrostów są podobne, jednak zmiany nie są symetryczne
+przykładowo: 
+W przedziale <1 SD liczba spadków (310) i wzrostów (263)
+ W przedziale 3-4 SD wzrostów jest wyraźnie więcej (9 wzrostów vs 1 spadek).
+ Dla dużych zmian  wzrosty występują częściej niż spadki
+
+# Część 2
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(lmtest) 
+```
+
+```{r}
+# dane dzienne walutowe
+europln_d <- read.csv("C:/Users/mikol/OneDrive/Desktop/Pomiary_Ryzyka/waluty/europln/eurpln_dziennie.csv")
+
+str(europln_d)
+
+europln_d$Data <- as.Date(europln_d$Data, format = "%Y-%m-%d")
+
+# dane od 2012 do 2023
+europln_d_filtered <- subset(europln_d, Data >= as.Date("2012-01-01") & Data <= as.Date("2023-12-31"))
+```
+
+
+## Zadanie 1
+```{r}
+# Zad1 --------------------------------------------------------------------
+
+##POLECENIE
+#Dla wybranego przez Ciebie zestawu danych, na podstawie pierwszego, podanego na wykładzie wzoru, 
+#wyznaczyć zmienność stóp zwrotu (przyjąć m = 10, 25, 50 i 100). Wyniki przedstawić na wykresie. 
+#Jak wykres zależy od wyboru wartości m?
+
+# stopy logarytmiczna i stopa prosta
+europln_d_filtered <- europln_d_filtered |> 
+  mutate(
+    Stopa_Prosta = (Zamkniecie - dplyr::lag(Zamkniecie)) / dplyr::lag(Zamkniecie),
+    Stopa_Logarytmiczna = log(Zamkniecie / dplyr::lag(Zamkniecie))
+  )
+
+# wzór1 
+oblicz_zmiennosc <- function(stopy, m) {
+  n <- length(stopy)
+  zmiennosc <- numeric(n)
+  for (i in seq(m, n)) {
+    zmiennosc[i] <- sqrt(sum(stopy[(i - m + 1):i]^2) / m)
+  }
+  return(zmiennosc)
+}
+
+
+m_values <- c(10, 25, 50, 100)
+
+# do 1
+for (m in m_values) {
+  europln_d_filtered <- europln_d_filtered |> 
+    mutate(!!paste0("Zmiennosc_Logarytmiczna_m", m) := oblicz_zmiennosc(Stopa_Logarytmiczna, m))
+}
+
+
+zmiennosc_dlugie <- europln_d_filtered |> 
+  select(Data, starts_with("Zmiennosc_Logarytmiczna_")) |> 
+  pivot_longer(
+    cols = starts_with("Zmiennosc_Logarytmiczna_"),
+    names_to = "Okres",
+    names_prefix = "Zmiennosc_Logarytmiczna_m",
+    values_to = "Zmiennosc"
+  )
+
+ggplot(zmiennosc_dlugie, aes(x = Data, y = Zmiennosc, color = Okres)) +
+  geom_line() +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +  
+  labs(
+    title = "Zmienność logarytmicznej stopy zwrotu dla różnych wartości m",
+    y = "Zmienność", x = "Rok", color = "m"
+  ) +
+  theme_minimal()
+```
+
+jak widać im mniejsz m, krótkoterminowa zmiennośc jest bardziej szpiczasta
+widać więcej wznosów i górowań, co oznacza że wsk. jest bardziej podatny na w rynkowe
+wykres bardziej reaguje na pojedyncze duże zmiany cen Natomiast czym większe m, zmienność staje się bardziej wygładzona, mniej gwałtownych skoków
+
+## Zad2
+
+```{r}
+#wzór 2
+oblicz_zmiennosc2 <- function(stopy, m) {
+  n <- length(stopy)
+  zmiennosc <- numeric(n)
+  
+  for (i in seq(m, n)) {
+    ostatnie_m <- stopy[(i - m + 1):i]
+    srednia_m <- mean(ostatnie_m)
+    zmiennosc[i] <- sqrt(sum((ostatnie_m - srednia_m)^2) / (m - 1))
+  }
+  
+  return(zmiennosc)
+}
+
+m2 <- 25
+
+# Obliczenie zmienności dla obu wzorów
+europln_d_filtered <- europln_d_filtered |> 
+  mutate(
+    Zmiennosc_Wzor1_m25 = oblicz_zmiennosc(Stopa_Logarytmiczna, m2),
+    Zmiennosc_Wzor2_m25 = oblicz_zmiennosc2(Stopa_Logarytmiczna, m2)
+  )
+
+
+zmiennosc_porownanie <- europln_d_filtered %>%
+  select(Data, Zmiennosc_Wzor1_m25, Zmiennosc_Wzor2_m25) %>%
+  pivot_longer(
+    cols = starts_with("Zmiennosc"),
+    names_to = "Wzor",
+    names_prefix = "Zmiennosc_",
+    values_to = "Zmiennosc"
+  )
+
+ggplot(zmiennosc_porownanie, aes(x = Data, y = Zmiennosc, color = Wzor)) +
+  geom_line() +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(
+    title = "Porównanie zmienności stóp zwrotu (m = 25) dla dwóch wzorów",
+    x = "Rok",
+    y = "Zmienność",
+    color = "Wzór"
+  ) +
+  theme_minimal()
+```
+
+
+ Podobieństwo między liniami jest bardzo duże kiedy nie występują duże skoki danych
+Różnice występują w momentach dużych skoków zmienności , wzór 1 jest bardziej podatny na skrajne wartości
+ uproszczenie procedury liczenia zmienności, nie powodują dużych zakłóceń
+ w wyznaczanej wartości zmienności.
+ 
+ 
+## Zad3
+```{r}
+
+# Zad3 --------------------------------------------------------------------
+europln_d_filtered <- europln_d_filtered %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.na(.), 0, .)))
+sum(is.na(europln_d_filtered))
+####EWMA
+
+oblicz_ewma <- function(stopy, lambda) {
+  n <- length(stopy)
+  ewma <- numeric(n)
+  ewma[1] <- stopy[1]^2 # Pierwsza wartość inicjalizacyjna
+  
+  for (t in 2:n) {
+    ewma[t] <- lambda * ewma[t-1] + (1 - lambda) * stopy[t-1]^2
+  }
+  return(sqrt(ewma)) # odchylenie standardowe
+}
+
+lambda <- 0.94
+ewma_zmiennosc <- oblicz_ewma(europln_d_filtered$Stopa_Logarytmiczna, lambda)
+
+europln_d_filtered$EWMA <- ewma_zmiennosc #dodanie do tabeli dannych
+
+ggplot(europln_d_filtered, aes(x = Data)) +
+  geom_line(aes(y = EWMA, color = "EWMA")) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(title = "Monitorowanie zmienności - model EWMA", y = "Zmienność", x = "Data") +
+  theme_minimal()
+
+# Porownanie EWMA i wzóru z zad 2
+ggplot(europln_d_filtered, aes(x = Data)) +
+  geom_line(aes(y = EWMA, color = "EWMA")) +
+  geom_line(aes(y = Zmiennosc_Wzor2_m25, color = "Wzór2 m=25")) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(title = "Porównanie zmienności EWMA i Wzoru z Zadania 2", x = "Rok", y = "Zmienność", color = "Metoda") +
+  theme_minimal()
+```
+
+ jak widać model EWMA jest niemal identyczny 
+do tego z zad2, co prawda nie pokrywa się 1:1 z wykrezem z zad2
+
+```{r}
+library(rugarch)
+
+# Sprawdzenie długości danych (rugarch wymaga wektora danych)
+stopy_log <- europln_d_filtered$Stopa_Logarytmiczna
+
+# Specyfikacja modelu GARCH(1,1)
+spec <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model = list(armaOrder = c(0, 0), include.mean = FALSE),
+  distribution.model = "norm"
+)
+
+# Dopasowanie modelu do danych
+fit <- ugarchfit(spec = spec, data = stopy_log)
+
+# Wyciągnięcie wyników
+print(fit)  # Podsumowanie wyników
+
+# Warunkowa wariancja i zmienność
+sigma_t <- sigma(fit)  # Zmienność (odchylenie standardowe)
+sigma_t <- as.vector(sigma_t)  # Konwersja na wektor
+
+# Dodanie wyników do tabeli
+europln_d_filtered <- europln_d_filtered[seq_along(sigma_t), ]  # Dopasowanie długości
+europln_d_filtered$GARCH_rugarch <- sigma_t
+
+ggplot(europln_d_filtered, aes(x = Data)) +
+  geom_line(aes(y = GARCH_rugarch, color = "GARCH")) +
+  labs(title = "Zmienność wg modelu GARCH(1,1)", y = "Zmienność", x = "Data") +
+  scale_color_manual(name = "Metoda", values = c("GARCH" = "red")) +
+  theme_minimal()
+
+
+```
+
+model Garch jest bardziej wrażliwy na wartosci ekstremalne, i jednoczesnie abrdziej prezycyjny
+lepiej wychwytuje skoki zmiennosci
+silniej reguje na duże zmiennosci, przezco charakteryzuje sie licznymi skokami
+znacznie odbiega od tego z zad2
+
+
+
+## Zadanie 4
+```{r}
+# Zad4 --------------------------------------------------------------------
+
+europln_d1 <- read.csv("C:/Users/mikol/OneDrive/Desktop/Pomiary_Ryzyka/waluty/europln/eurpln_dziennie.csv")
+eurogbp_d1 <- read.csv("C:/Users/mikol/OneDrive/Desktop/Pomiary_Ryzyka/waluty/eurogbp/eurgbp_d.csv")
+eurousd_d1 <- read.csv("C:/Users/mikol/OneDrive/Desktop/Pomiary_Ryzyka/waluty/eurousd/eurusd_d.csv")
+
+europln_d1$Data <- as.Date(europln_d1$Data, format = "%Y-%m-%d")
+eurogbp_d1$Data <- as.Date(eurogbp_d1$Data, format = "%Y-%m-%d")
+eurousd_d1$Data <- as.Date(eurousd_d1$Data, format = "%Y-%m-%d")
+
+europln_d_filtered1 <- subset(europln_d1, Data >= as.Date("2021-01-01") & Data <= as.Date("2021-10-31"))
+eurogbp_d_filtered1 <- subset(eurogbp_d1, Data >= as.Date("2021-01-01") & Data <= as.Date("2021-10-31"))
+eurousd_d_filtered1 <- subset(eurousd_d1, Data >= as.Date("2021-01-01") & Data <= as.Date("2021-10-31"))
+
+# logarytmicznych stóp zwrotu dla EUR/PLN
+europln_d_filtered1 <- europln_d_filtered1 |> 
+  mutate(Stopa_Logarytmiczna = log(Zamkniecie / dplyr::lag(Zamkniecie)))
+
+# logarytmicznych stóp zwrotu dla EUR/GBP
+eurogbp_d_filtered1 <- eurogbp_d_filtered1 |> 
+  mutate(Stopa_Logarytmiczna = log(Zamkniecie / dplyr::lag(Zamkniecie)))
+
+# logarytmicznych stóp zwrotu dla EUR/USD
+eurousd_d_filtered1 <- eurousd_d_filtered1 |> 
+  mutate(Stopa_Logarytmiczna = log(Zamkniecie / dplyr::lag(Zamkniecie)))
+
+df <- data.frame(
+  Data = europln_d_filtered1$Data,
+  EUR_PLN = europln_d_filtered1$Stopa_Logarytmiczna,
+  EUR_GBP = eurogbp_d_filtered1$Stopa_Logarytmiczna,
+  EUR_USD = eurousd_d_filtered1$Stopa_Logarytmiczna
+)
+
+korelacja <- cor(df[,-1], use = "complete.obs")
+korelacja
+
+```
+
+ korelacja między kursami jest stosunkowo słaba.
+ stopy zwrotu dla tych kursów nie wykazują silnych związków i mogą być bardziej niezależne od siebie.
+ 
+ 
+ 
+## Zad 5
+
+Test DW
+```{r}
+# Zad5 --------------------------------------------------------------------
+
+# Test Durbina-Watsona (pierwszy rząd)
+dwtest(Stopa_Logarytmiczna ~ 1, data = europln_d_filtered)
+
+
+```
+
+nie odrzucamy H0
+Brak autokorelacji rzędu pierwszego
+
+Test Box.test
+
+```{r}
+
+# Test Ljunga-Boxa dla wyższych rzędóww
+Box.test(europln_d_filtered$Stopa_Logarytmiczna, lag =2 , type = "Ljung-Box")
+Box.test(europln_d_filtered$Stopa_Logarytmiczna, lag =3 , type = "Ljung-Box")
+Box.test(europln_d_filtered$Stopa_Logarytmiczna, lag =4 , type = "Ljung-Box")
+Box.test(europln_d_filtered$Stopa_Logarytmiczna, lag =5 , type = "Ljung-Box")
+
+
+
+```
+
+istotna autokorelacja
+Niska/negatywna korelacja zmniejsza ryzyko poprzez dywersyfikację. 
+Wysoka pozytywna korelacja zwiększa ryzyko.
+Silna korelacja może zwiększać ryzyko skrajnych zmian wartości
+
+```{r}
+# Zad6 --------------------------------------------------------------------
+
+lambda_values <- c(0.85, 0.90, 0.95, 0.99)
+for (lambda in lambda_values) {
+  ewma_column <- oblicz_ewma(europln_d_filtered$Stopa_Logarytmiczna, lambda)
+  column_name <- paste0("EWMA_lambda_", lambda)
+  europln_d_filtered[[column_name]] <- ewma_column
+}
+
+ewma_porownanie <- europln_d_filtered %>%
+  select(Data, starts_with("EWMA_lambda_")) %>%
+  pivot_longer(
+    cols = starts_with("EWMA_lambda_"),
+    names_to = "Lambda",
+    values_to = "Zmiennosc"
+  )
+
+ggplot(ewma_porownanie, aes(x = Data, y = Zmiennosc, color = Lambda)) +
+  geom_line() +
+  labs(
+    title = "Krocząca zmienność - Model EWMA dla różnych wartości lambda",
+    x = "Data",
+    y = "Zmienność"
+  ) +
+  theme_minimal()
+
+```
+
+Mniejsze wartości lambda bardziej reagują na zmiany,są mniej stabilne
+czuły na krótko terminowe ruchy cenowe
+Większe wartości lambda mają bardziej wygładzoną zmienność, mniej 
+dynamicznie reagują na skrajne ruchy cenowe. Redukuje wpływ nagłych skoków, bardziej stabilne
+
+
+
+# Zadanie 7
+```{r}
+# Zad 7 -------------------------------------------------------------------
+
+m <- 25
+europln_d_filtered$Zmiennosc_Wzor1_m25 <- oblicz_zmiennosc(europln_d_filtered$Stopa_Logarytmiczna, m)
+
+zmiennosc_porownanie <- europln_d_filtered %>%
+  select(Data, Zmiennosc_Wzor1_m25, starts_with("EWMA_lambda")) %>%
+  pivot_longer(
+    cols = -Data,
+    names_to = "Typ_Zmiennosci",
+    values_to = "Wartosc"
+  )
+
+ggplot(zmiennosc_porownanie, aes(x = Data, y = Wartosc, color = Typ_Zmiennosci)) +
+  geom_line() +
+  labs(title = "Porównanie zmienności EWMA dla różnych lambda z kroczącą zmiennością (m=25)",
+       x = "Data", y = "Zmienność") +
+  theme_minimal()
+
+
+rmse <- function(actual, predicted) {
+  sqrt(mean((actual - predicted)^2, na.rm = TRUE))
+}
+
+rmse_values <- sapply(lambda_values, function(lambda) {
+  colname <- paste0("EWMA_lambda_", lambda)
+  rmse(europln_d_filtered$Zmiennosc_Wzor1_m25, europln_d_filtered[[colname]])
+})
+
+names(rmse_values) <- lambda_values
+rmse_values
+
+```
+
+najlepiej sprawdzi sie lambda 0.95
+oznacza to, że model EWMA z tym parametrem dobrze oddaje rzeczywistą zmienność kroczącą.
+
+
+
+
+
